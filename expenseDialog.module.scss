@@ -2,11 +2,17 @@
     padding-left: 0.6em;
 }
 
-.fields {
+.pickImage {
     display: flex;
     flex-direction: column;
     gap: 0.8em;
     padding: 0.6em;
+}
+
+.fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8em;
 }
 
 .dialog {

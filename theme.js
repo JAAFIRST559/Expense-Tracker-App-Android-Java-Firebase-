@@ -98,11 +98,13 @@
            color: fontColor,
            fontFamily: fontTitle,
            fontSize: "24px",
-           fontWeight: "600"
+           fontWeight: "600",
+           opacity: "60%"
          },
          h5: {
            color: fontColor,
-           fontWeight: "200"
+           fontWeight: "200",
+           opacity: "60%"
          },
          h6: {
            color: fontColor,

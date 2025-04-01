@@ -15,33 +15,39 @@
  * limitations under the License.
  */
 
-import { useEffect, useState } from 'react';
-import Head from 'next/head';
-import { useRouter } from 'next/router';
-import { EmailAuthProvider, GoogleAuthProvider } from 'firebase/auth';
-import { Button, CircularProgress, Container, Dialog, Typography } from '@mui/material';
-import { auth } from '../firebase/firebase';
-import styles from '../styles/landing.module.scss';
+import functions, { logger } from 'firebase-functions';
+import vision from '@google-cloud/vision';
+import admin from 'firebase-admin';
 
-export default function Home() {
-  const router = useRouter();
+export const RECEIPT_COLLECTION = 'receipts';
 
-  return (
-    <div>
-      <Head>
-        <title>Expense Tracker</title>
-      </Head>
+admin.initializeApp();
+export const readReceiptDetails = functions.storage.object().onFinalize(async (object) => {
+  const imageBucket = `gs://${object.bucket}/${object.name}`;
+  const client = new vision.ImageAnnotatorClient();
 
-      <main>
-        <Container className={styles.container}>
-          <Typography variant="h1">Welcome to Expense Tracker!</Typography>
-          <Typography variant="h2">Add, view, edit, and delete expenses</Typography>
-          <div className={styles.buttons}>
-            <Button variant="contained" color="secondary">
-              Login / Register
-            </Button>
-          </div>
-        </Container>
-      </main>
-    </div>);
-}
+  const [textDetections] = await client.textDetection(imageBucket);
+  const [annotation] = textDetections.textAnnotations;
+  const text = annotation ? annotation.description : '';
+  logger.log(text);
+  
+  // Parse text
+
+  // Get user ID
+  // object.name is userID/timestamp
+  const re = /(.*)\//;
+  const uid = re.exec(object.name)[1];
+
+  // Going to hardcode returned text for relevant fields
+  const receipt = {
+    address: '123 Happy St, Bestcity, World 67890', 
+    amount: '23.45',
+    date: new Date(),
+    imageBucket,
+    items: 'best appetizer, best main dish, best dessert',
+    locationName: 'Best Restaurant',
+    uid
+  };
+
+  admin.firestore().collection(RECEIPT_COLLECTION).add(receipt);
+});
