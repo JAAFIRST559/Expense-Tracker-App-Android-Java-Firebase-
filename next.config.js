@@ -15,6 +15,10 @@
  * limitations under the License.
  */
 
-import { db, messaging } from "./firebase";
-import { doc, setDoc } from 'firebase/firestore';
-import { getToken, onMessage } from 'firebase/messaging';
+const path = require('path')
+
+module.exports = {
+  sassOptions: {
+    includePaths: [path.join(__dirname, 'styles')],
+  },
+}

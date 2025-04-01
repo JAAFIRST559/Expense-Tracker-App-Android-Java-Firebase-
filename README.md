@@ -1,2 +1,5 @@
-This is a starter template for [Learn Next.js](https://nextjs.org/learn).# expense-tracker
-# expense-tracker
+# Building an Expense Tracker Web App with Firebase and React
+
+This is the starter code that goes along with this video. Feel free to follow along!
+
+[Here]() is the solution code from the end of the video. 

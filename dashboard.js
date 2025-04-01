@@ -15,51 +15,47 @@
  * limitations under the License.
  */
 
-import { useState, useEffect } from 'react';
-import Head from 'next/head'
-import { useRouter } from 'next/router';
-import AddIcon from '@mui/icons-material/Add';
-import NavBar from '../components/navbar';
-import ReceiptRow from '../components/receiptRow';
-import ExpenseDialog from '../components/expenseDialog';
-import { useAuth } from '../firebase/auth';
-import { deleteReceipt as deleteFromDb, getReceipts } from '../firebase/firestore';
-import { Alert, Button, CircularProgress, Container, Dialog, DialogContent, DialogActions, Divider, IconButton, Snackbar, Typography, Stack } from '@mui/material';
-import { deleteImage } from '../firebase/storage';
-import styles from '../styles/dashboard.module.scss';
+ import { useState, useEffect } from 'react';
+ import Head from 'next/head';
+ import { useRouter } from 'next/router';
+ import { Alert, Button, CircularProgress, Container, Dialog, DialogContent, DialogActions, Divider, IconButton, Snackbar, Stack, Typography } from '@mui/material';
+ import AddIcon from '@mui/icons-material/Add';
+ import NavBar from '../components/navbar';
+ import ReceiptRow from '../components/receiptRow';
+ import ExpenseDialog from '../components/expenseDialog';
+ import { useAuth } from '../firebase/auth';
+ import { deleteReceipt, getReceipts } from '../firebase/firestore';
+ import { deleteImage } from '../firebase/storage';
+ import styles from '../styles/dashboard.module.scss';
 
-const ADD_SUCCESS = "Receipt was successfully added, you'll receive a notification to confirm the receipt!";
+const ADD_SUCCESS = "Receipt was successfully added!";
 const ADD_ERROR = "Receipt was not successfully added!";
-const CONFIRM_SUCCESS = "Receipt was successfully confirmed!";
-const CONFIRM_ERROR = "Receipt was not successfully confirmed!";
 const EDIT_SUCCESS = "Receipt was successfully updated!";
 const EDIT_ERROR = "Receipt was not successfully updated!";
 const DELETE_SUCCESS = "Receipt successfully deleted!";
 const DELETE_ERROR = "Receipt not successfully deleted!";
 
+// Enum to represent different states of receipts
 export const RECEIPTS_ENUM = Object.freeze({
   none: 0,
   add: 1,
   edit: 2,
   delete: 3,
-  confirm: 4,
 });
 
 const SUCCESS_MAP = {
   [RECEIPTS_ENUM.add]: ADD_SUCCESS,
   [RECEIPTS_ENUM.edit]: EDIT_SUCCESS,
-  [RECEIPTS_ENUM.delete]: DELETE_SUCCESS,
-  [RECEIPTS_ENUM.confirm]: CONFIRM_SUCCESS
+  [RECEIPTS_ENUM.delete]: DELETE_SUCCESS
 }
 
 const ERROR_MAP = {
   [RECEIPTS_ENUM.add]: ADD_ERROR,
   [RECEIPTS_ENUM.edit]: EDIT_ERROR,
-  [RECEIPTS_ENUM.delete]: DELETE_ERROR,
-  [RECEIPTS_ENUM.confirm]: CONFIRM_ERROR
+  [RECEIPTS_ENUM.delete]: DELETE_ERROR
 }
 
-export default function Home() {
+export default function Dashboard() {
   const { authUser, isLoading } = useAuth();
   const router = useRouter();
   const [action, setAction] = useState(RECEIPTS_ENUM.none);
@@ -68,8 +64,6 @@ export default function Home() {
   const [isLoadingReceipts, setIsLoadingReceipts] = useState(true);
   const [deleteReceiptId, setDeleteReceiptId] = useState("");
   const [deleteReceiptImageBucket, setDeleteReceiptImageBucket] = useState("");
-  const [pastReceipts, setPastReceipts] = useState([]);
-  const [toConfirmReceipts, setToConfirmReceipts] = useState([]);
   const [updateReceipt, setUpdateReceipt] = useState({});
 
   // State involved in snackbar
@@ -77,32 +71,27 @@ export default function Home() {
   const [showSuccessSnackbar, setSuccessSnackbar] = useState(false);
   const [showErrorSnackbar, setErrorSnackbar] = useState(false);
 
-  const getAndSetReceipts = async () => {
-    setToConfirmReceipts(await getReceipts(authUser.uid, false));
-    setPastReceipts(await getReceipts(authUser.uid, true));
-  }
-
-  // Listen for changes on loading and authUser, redirect if needed
-  useEffect(() => {
-    if (!isLoading && !authUser)
-      router.push('/')
-  }, [authUser, isLoading])
-
-  useEffect(async () => {
-    if (authUser) {
-      await getAndSetReceipts();
-      setIsLoadingReceipts(false);
-    }
-  }, [authUser])
-
   // Sets appropriate snackbar message on whether @isSuccess and updates shown receipts if necessary
   const onResult = async (receiptEnum, isSuccess) => {
     setSnackbarMessage(isSuccess ? SUCCESS_MAP[receiptEnum] : ERROR_MAP[receiptEnum]);
     isSuccess ? setSuccessSnackbar(true) : setErrorSnackbar(true);
     setAction(RECEIPTS_ENUM.none);
-    if (isSuccess) {
-      getAndSetReceipts();
-    }
+  }
+
+  // Listen to changes for loading and authUser, redirect if needed
+  useEffect(() => {
+  }, [authUser, isLoading]);
+
+  // For all of the onClick functions, update the action and fields for updating
+
+  const onClickAdd = () => {
+    setAction(RECEIPTS_ENUM.add);
+    setUpdateReceipt({});
+  }
+
+  const onUpdate = (receipt) => {
+    setAction(RECEIPTS_ENUM.edit);
+    setUpdateReceipt(receipt);
   }
 
   const onClickDelete = (id, imageBucket) => {
@@ -111,53 +100,12 @@ export default function Home() {
     setDeleteReceiptImageBucket(imageBucket);
   }
 
-  const onCloseReceiptDialog = () => {
-    setAction(RECEIPTS_ENUM.none);
-    setUpdateReceipt({});
-  }
-
-  const onUpdate = (receipt, action) => {
-    setUpdateReceipt(receipt);
-    setAction(action);
-  }
-
   const resetDelete = () => {
     setAction(RECEIPTS_ENUM.none);
     setDeleteReceiptId("");
   }
 
-  // Delete receipt image from Storage
-  const onDelete = async () => {
-    let isSucceed = true;
-    try {
-      await deleteFromDb(deleteReceiptId);
-      await deleteImage(deleteReceiptImageBucket);
-    } catch (error) {
-      isSucceed = false;
-    }
-    resetDelete();
-    onResult(RECEIPTS_ENUM.delete, isSucceed);
-  }
-
-  const getReceiptRows = (isConfirmedReceipts) => {
-    const receipts = isConfirmedReceipts ? toConfirmReceipts : pastReceipts;
-    const zeroStateText = isConfirmedReceipts ? 'No receipts to confirm' : 'No past receipts';
-    const actionEnum = isConfirmedReceipts ? RECEIPTS_ENUM.confirm : RECEIPTS_ENUM.edit;
-    return receipts.length > 0 ? 
-      receipts.map((receipt) => (
-        <div key={receipt.id}>
-          <Divider light />
-          <ReceiptRow toConfirm={isConfirmedReceipts} receipt={receipt}
-                      onEdit={() => onUpdate(receipt, actionEnum)}
-                      onDelete={() => onClickDelete(receipt.id, receipt.imageBucket)} />
-        </div>)
-      )
-      :
-      <Typography variant="h5">{zeroStateText}</Typography>
-  }
-
-  return ((!authUser || isLoadingReceipts) ? 
-    <CircularProgress color="inherit" sx={{ marginLeft: '50%', marginTop: '25%' }}/> :
+  return (
     <div>
       <Head>
         <title>Expense Tracker</title>
@@ -175,26 +123,18 @@ export default function Home() {
         </Snackbar>
         <Stack direction="row" sx={{ paddingTop: "1.5em" }}>
           <Typography variant="h4" sx={{ lineHeight: 2, paddingRight: "0.5em" }}>
-            NEED CONFIRMATION
-          </Typography>
-        </Stack>
-        { getReceiptRows(true) }
-        <Stack direction="row" sx={{ paddingTop: "1.5em" }}>
-          <Typography variant="h4" sx={{ lineHeight: 2, paddingRight: "0.5em" }}>
             EXPENSES
           </Typography>
-          <IconButton aria-label="edit" color="secondary" className={styles.addButton}
-                      onClick={() => setAction(RECEIPTS_ENUM.add)}>
+          <IconButton aria-label="edit" color="secondary" onClick={onClickAdd} className={styles.addButton}>
             <AddIcon />
-          </IconButton>  
+          </IconButton>
         </Stack>
-        { getReceiptRows(false) }
       </Container>
-      <ExpenseDialog key={action} receipt={updateReceipt}
-                     action={action}
+      <ExpenseDialog edit={updateReceipt}
+                     showDialog={action === RECEIPTS_ENUM.add || action === RECEIPTS_ENUM.edit}
                      onError={(receiptEnum) => onResult(receiptEnum, false)}
                      onSuccess={(receiptEnum) => onResult(receiptEnum, true)}
-                     onCloseDialog={() => onCloseReceiptDialog()}>
+                     onCloseDialog={() => setAction(RECEIPTS_ENUM.none)}>
       </ExpenseDialog>
       <Dialog open={action === RECEIPTS_ENUM.delete} onClose={resetDelete}>
         <Typography variant="h4" className={styles.title}>DELETE EXPENSE</Typography>
@@ -205,7 +145,7 @@ export default function Home() {
           <Button color="secondary" variant="outlined" onClick={resetDelete}>
               Cancel
           </Button>
-          <Button color="secondary" variant="contained" onClick={onDelete} autoFocus>
+          <Button color="secondary" variant="contained" autoFocus>
               Delete
           </Button>
         </DialogActions>
